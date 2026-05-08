@@ -222,6 +222,7 @@ export default function FormPage() {
   const navigate = useNavigate();
   const autocompleteController = useRef<AbortController | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const vencimentoDateInputRef = useRef<HTMLInputElement | null>(null);
   const displayedResults = pinnedResults ?? searchResults;
 
   // Estados para a requisição da Selic
@@ -367,6 +368,35 @@ export default function FormPage() {
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const openVencimentoDatePicker = () => {
+    const input = vencimentoDateInputRef.current;
+    if (!input) return;
+
+    const dateInput = input as HTMLInputElement & {
+      showPicker?: () => void;
+    };
+
+    if (typeof dateInput.showPicker === 'function') {
+      try {
+        dateInput.showPicker();
+        return;
+      } catch {
+        // Continua com o fallback quando o WebView nao permite showPicker.
+      }
+    }
+
+    input.focus();
+    input.click();
+  };
+
+  const handleVencimentoDateChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const formattedDate = formatNativeDateInput(event.target.value);
+    if (!formattedDate) return;
+    handleChange('dataVencimento', formattedDate);
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -574,6 +604,18 @@ export default function FormPage() {
           onChange={(e) => handleChange('dataVencimento', e.target.value)}
           inputMode="text"
           placeholder="12/03/2026"
+          leadingIcon={<CalendarIcon />}
+          leadingIconLabel="Abrir calendario de vencimento"
+          onLeadingIconClick={openVencimentoDatePicker}
+        />
+        <input
+          ref={vencimentoDateInputRef}
+          type="date"
+          value={toNativeDateInputValue(form.dataVencimento)}
+          onChange={handleVencimentoDateChange}
+          aria-hidden="true"
+          tabIndex={-1}
+          style={hiddenDateInputStyle}
         />
 
         {error ? <p style={styles.error}>{error}</p> : null}
@@ -602,25 +644,127 @@ export default function FormPage() {
 function Input({
   label,
   hint,
+  leadingIcon,
+  leadingIconLabel,
+  onLeadingIconClick,
   ...props
 }: {
   label: string;
   hint?: string;
+  leadingIcon?: React.ReactNode;
+  leadingIconLabel?: string;
+  onLeadingIconClick?: () => void;
   value: string;
   inputMode?: 'decimal' | 'text';
   placeholder?: string;
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
+  const input = (
+    <input
+      style={
+        leadingIcon
+          ? { ...styles.input, width: '100%', paddingLeft: 42 }
+          : styles.input
+      }
+      {...props}
+    />
+  );
+
   return (
     <label style={styles.inputGroup}>
       <span style={styles.labelRow}>
         <span style={styles.label}>{label}</span>
         {hint ? <InfoTip text={hint} /> : null}
       </span>
-      <input style={styles.input} {...props} />
+      {leadingIcon ? (
+        <span style={inputIconWrapperStyle}>
+          <button
+            type="button"
+            aria-label={leadingIconLabel}
+            style={inputIconButtonStyle}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onLeadingIconClick?.();
+            }}
+          >
+            {leadingIcon}
+          </button>
+          {input}
+        </span>
+      ) : (
+        input
+      )}
     </label>
   );
 }
+
+function CalendarIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  );
+}
+
+function formatNativeDateInput(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return '';
+  const [year, month, day] = value.split('-');
+  return `${day}/${month}/${year}`;
+}
+
+function toNativeDateInputValue(value: string): string {
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(value)) return '';
+  const [day, month, year] = value.split('/');
+  return `${year}-${month}-${day}`;
+}
+
+const inputIconWrapperStyle: React.CSSProperties = {
+  position: 'relative',
+  display: 'block',
+  width: '100%',
+};
+
+const inputIconButtonStyle: React.CSSProperties = {
+  position: 'absolute',
+  left: 12,
+  top: '50%',
+  transform: 'translateY(-50%)',
+  zIndex: 1,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 24,
+  height: 24,
+  padding: 0,
+  border: 'none',
+  backgroundColor: 'transparent',
+  color: '#38bdf8',
+  cursor: 'pointer',
+};
+
+const hiddenDateInputStyle: React.CSSProperties = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  padding: 0,
+  border: 0,
+  opacity: 0,
+  pointerEvents: 'none',
+};
 
 function InfoTip({ text }: { text: string }) {
   const [isPinned, setIsPinned] = useState(false);
