@@ -1,0 +1,32 @@
+:root {
+  color-scheme: dark;
+  background-color: #0f172a;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #0f172a;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  color: #e2e8f0;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: #0f172a;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
