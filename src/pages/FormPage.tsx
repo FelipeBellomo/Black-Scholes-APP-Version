@@ -222,6 +222,7 @@ export default function FormPage() {
   const navigate = useNavigate();
   const autocompleteController = useRef<AbortController | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipNextAutocompleteRef = useRef(false);
   const vencimentoDateInputRef = useRef<HTMLInputElement | null>(null);
   const displayedResults = pinnedResults ?? searchResults;
 
@@ -312,6 +313,17 @@ export default function FormPage() {
     const term = searchTerm.trim();
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
+    }
+
+    if (skipNextAutocompleteRef.current) {
+      skipNextAutocompleteRef.current = false;
+      if (autocompleteController.current) {
+        autocompleteController.current.abort();
+      }
+      setSearchResults([]);
+      setPinnedResults(null);
+      setSelectedResultIndex('');
+      return;
     }
 
     if (!term || term.length < AUTOCOMPLETE_MIN_CHARS) {
@@ -539,12 +551,14 @@ export default function FormPage() {
             applySearchItemToForm(item);
 
             // Escreve o ticker do ativo na caixa de busca
+            skipNextAutocompleteRef.current = true;
             setSearchTerm(item.symbol);
 
             // Limpa os resultados para fechar a aba de sugestões
             setSearchResults([]);
             setPinnedResults(null);
             setSelectedResultIndex('');
+            setSearchMessage(null);
           }}
         >
           <option value="" disabled>
