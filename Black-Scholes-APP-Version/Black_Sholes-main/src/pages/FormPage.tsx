@@ -165,8 +165,53 @@ const initialState: FormState = {
   dataVencimento: formatDateInput(defaultVencimento),
 };
 
+const FORM_CACHE_KEY = 'black-scholes:form';
+
+function loadCachedFormState(): FormState {
+  const raw = localStorage.getItem(FORM_CACHE_KEY);
+  if (!raw) {
+    return initialState;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<FormState> | null;
+    if (
+      !parsed ||
+      typeof parsed.S !== 'string' ||
+      typeof parsed.K !== 'string' ||
+      typeof parsed.r !== 'string' ||
+      typeof parsed.sigma !== 'string' ||
+      typeof parsed.p !== 'string' ||
+      typeof parsed.dataAtual !== 'string' ||
+      typeof parsed.dataVencimento !== 'string'
+    ) {
+      return initialState;
+    }
+
+    return {
+      S: parsed.S,
+      K: parsed.K,
+      r: parsed.r,
+      sigma: parsed.sigma,
+      p: parsed.p,
+      dataAtual: parsed.dataAtual,
+      dataVencimento: parsed.dataVencimento,
+    };
+  } catch {
+    return initialState;
+  }
+}
+
+function saveCachedFormState(form: FormState) {
+  try {
+    localStorage.setItem(FORM_CACHE_KEY, JSON.stringify(form));
+  } catch {
+    // Ignora erros de storage para nao bloquear o calculo.
+  }
+}
+
 export default function FormPage() {
-  const [form, setForm] = useState<FormState>(initialState);
+  const [form, setForm] = useState<FormState>(() => loadCachedFormState());
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchItem[]>([]);
@@ -191,12 +236,12 @@ export default function FormPage() {
         const taxaAtual = await buscarTaxaSelic();
         setForm((prev) => ({
           ...prev,
-          r: String(taxaAtual)
+          r: prev.r || String(taxaAtual)
         }));
       } catch (e) {
         setSelicError("Falha na API BCB. Usando valor padrão.");
         // Valor de fallback caso a API do BCB falhe
-        setForm((prev) => ({ ...prev, r: '0.105' }));
+        setForm((prev) => ({ ...prev, r: prev.r || '0.105' }));
       } finally {
         setSelicLoading(false);
       }
@@ -344,6 +389,7 @@ export default function FormPage() {
     const put = blackScholesPut(S, K, r, sigma, dataAtual, dataVencimento);
     const gregas = calculaGregas(S, K, r, sigma, dataAtual, dataVencimento);
 
+    saveCachedFormState(form);
     saveResultPayload({
       variant: 'classico',
       result: {
@@ -389,6 +435,7 @@ export default function FormPage() {
       dataVencimento,
     );
 
+    saveCachedFormState(form);
     saveResultPayload({
       variant: 'modificado',
       p,
