@@ -501,12 +501,22 @@ export default function FormPage() {
           placeholder="Buscar ativo (ticker ou nome, ex: PETR4.SA, Ambev)"
         />
         <button
-          style={{ ...styles.secondaryButton, marginTop: 0 }}
+          style={{
+            ...styles.secondaryButton,
+            width: 48,
+            height: 48,
+            padding: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: 0,
+          }}
           type="button"
           onClick={handleSearch}
           disabled={searchLoading}
+          aria-label={searchLoading ? 'Buscando ativo' : 'Pesquisar ativo'}
         >
-          {searchLoading ? 'Buscando...' : 'Pesquisar'}
+          <SearchIcon />
         </button>
       </div>
 
@@ -716,6 +726,25 @@ function CalendarIcon() {
       <line x1="16" y1="2" x2="16" y2="6" />
       <line x1="8" y1="2" x2="8" y2="6" />
       <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
   );
 }
