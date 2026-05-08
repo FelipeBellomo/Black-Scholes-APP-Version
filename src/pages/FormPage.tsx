@@ -160,7 +160,7 @@ const initialState: FormState = {
   K: '105',
   r: '',  // espera api do bcb
   sigma: '0.2',
-  p: '1.0',
+  p: '0.75',
   dataAtual: formatDateInput(today),
   dataVencimento: formatDateInput(defaultVencimento),
 };
@@ -606,14 +606,6 @@ export default function FormPage() {
           inputMode="decimal"
         />
         <Input
-          label="p - Parametro (modelo modificado)"
-          hint="Parametro do Black-Scholes modificado; use apenas no modificado (sugestao: 0.5 a 1.5)."
-          value={form.p}
-          onChange={(e) => handleChange('p', e.target.value)}
-          inputMode="decimal"
-          placeholder="1.0"
-        />
-        <Input
           label="Data atual (DD/MM/AAAA)"
           hint="Data base para calcular o tempo ate o vencimento."
           value={form.dataAtual}
@@ -640,6 +632,14 @@ export default function FormPage() {
           aria-hidden="true"
           tabIndex={-1}
           style={hiddenDateInputStyle}
+        />
+        <Input
+          label="p - Parametro (modelo modificado)"
+          hint="Parametro do Black-Scholes modificado; use apenas no modificado (sugestao: 0.5 a 1.5)."
+          value={form.p}
+          onChange={(e) => handleChange('p', e.target.value)}
+          inputMode="decimal"
+          placeholder="1.0"
         />
 
         {error ? <p style={styles.error}>{error}</p> : null}
