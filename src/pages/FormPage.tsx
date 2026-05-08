@@ -644,16 +644,35 @@ export default function FormPage() {
 
         {error ? <p style={styles.error}>{error}</p> : null}
 
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            flexWrap: 'nowrap',
+            width: '100%',
+          }}
+        >
           <button
-            style={{ ...styles.button, ...styles.actionButton }}
+            style={{
+              ...styles.button,
+              ...styles.actionButton,
+              minWidth: 0,
+              fontSize: '14px',
+              padding: '12px 8px',
+            }}
             type="button"
             onClick={calculateClassic}
           >
             Calcular classico
           </button>
           <button
-            style={{ ...styles.secondaryButton, ...styles.actionButton }}
+            style={{
+              ...styles.secondaryButton,
+              ...styles.actionButton,
+              minWidth: 0,
+              fontSize: '14px',
+              padding: '12px 8px',
+            }}
             type="button"
             onClick={calculateModified}
           >
