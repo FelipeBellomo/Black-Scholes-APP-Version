@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { styles } from '../styles';
 import { loadResultPayload, type ResultVariant } from '../utils/resultStorage';
+import { uiText } from '../content/uiText';
 
 type Props = {
   variant: ResultVariant;
@@ -21,7 +22,7 @@ export default function ResultPage({ variant }: Props) {
     if (!state?.result) {
       return (
         <>
-          <p style={styles.error}>Nenhum resultado salvo. Redirecionando...</p>
+          <p style={styles.error}>{uiText.result.empty}</p>
         </>
       );
     }
@@ -31,26 +32,31 @@ export default function ResultPage({ variant }: Props) {
       <>
         <h1 style={styles.title}>
           {variant === 'modificado'
-            ? 'Black-Scholes Modificado'
-            : 'Black-Scholes Classico'}
+            ? uiText.result.titles.modified
+            : uiText.result.titles.classic}
         </h1>
-        <InfoRow label="Preco teorico - Call (C)" value={result.call} />
-        <InfoRow label="Preco teorico - Put (P)" value={result.put} />
+        <InfoRow label={uiText.result.rows.callPrice} value={result.call} />
+        <InfoRow label={uiText.result.rows.putPrice} value={result.put} />
         <InfoRow
-          label="Tempo ate o vencimento (anos)"
+          label={uiText.result.rows.timeToExpiration}
           value={result.T}
           formatter={(v) => v.toFixed(6)}
         />
-        <InfoRow label="Dias uteis considerados" value={result.diasUteis} />
+        <InfoRow
+          label={uiText.result.rows.businessDays}
+          value={result.diasUteis}
+        />
         {variant === 'modificado' && state?.p !== undefined ? (
           <InfoRow
-            label="Parametro p"
+            label={uiText.result.rows.pParameter}
             value={state.p}
             formatter={(v) => v.toFixed(4)}
           />
         ) : null}
         <section style={styles.section}>
-          <p style={styles.sectionTitle}>Parametros usados</p>
+          <p style={styles.sectionTitle}>
+            {uiText.result.sections.usedParameters}
+          </p>
           <p style={styles.sectionText}>S: {result.inputs.S}</p>
           <p style={styles.sectionText}>K: {result.inputs.K}</p>
           <p style={styles.sectionText}>r: {result.inputs.r}</p>
@@ -60,14 +66,14 @@ export default function ResultPage({ variant }: Props) {
           <p style={styles.sectionText}>vega: {result.vega}</p>
           <p style={styles.sectionText}>gama: {result.gama}</p>
           <p style={styles.sectionText}>
-            Data atual: {result.inputs.dataAtual}
+            {uiText.result.sections.currentDate}: {result.inputs.dataAtual}
           </p>
           <p style={styles.sectionText}>
-            Vencimento: {result.inputs.dataVencimento}
+            {uiText.result.sections.expiration}: {result.inputs.dataVencimento}
           </p>
         </section>
         <button style={styles.secondaryButton} onClick={() => navigate('/')}>
-          Voltar
+          {uiText.result.actions.back}
         </button>
       </>
     );

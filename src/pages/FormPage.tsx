@@ -14,6 +14,7 @@ import { saveResultPayload } from '../utils/resultStorage';
 import { styles } from '../styles';
 import { parseDate, formatDateInput } from '../utils/dateHelpers';
 import { type SearchItem } from '../api/search';
+import { uiText } from '../content/uiText';
 
 
 // Interface do retorno da API do BCB
@@ -242,7 +243,7 @@ export default function FormPage() {
           r: prev.r || String(taxaAtual)
         }));
       } catch (e) {
-        setSelicError("Falha na API BCB. Usando valor padrão.");
+        setSelicError(uiText.form.errors.bcbFallback);
         // Valor de fallback caso a API do BCB falhe
         setForm((prev) => ({ ...prev, r: prev.r || '0.105' }));
       } finally {
@@ -267,7 +268,7 @@ export default function FormPage() {
     const rawTerm = searchTerm.trim();
     const normalizedSymbol = normalizeTicker(rawTerm);
     if (!rawTerm) {
-      setSearchMessage('Informe um ticker ou nome.');
+      setSearchMessage(uiText.form.search.emptyTerm);
       setSearchResults([]);
       setPinnedResults(null);
       setSelectedResultIndex('');
@@ -283,7 +284,7 @@ export default function FormPage() {
       const matches = getMatches(data, rawTerm);
 
       if (matches.length === 0) {
-        setSearchMessage('Ativo nao encontrado.');
+        setSearchMessage(uiText.form.search.notFound);
         return;
       }
 
@@ -304,7 +305,7 @@ export default function FormPage() {
         matches.map((item) => toSearchItem(item, normalizedSymbol)),
       );
     } catch (err) {
-      setSearchMessage('Erro ao consultar dados.');
+      setSearchMessage(uiText.form.search.fetchError);
     } finally {
       setSearchLoading(false);
     }
@@ -354,12 +355,12 @@ export default function FormPage() {
             matches.map((item) => toSearchItem(item, normalizeTicker(term))),
           );
           if (matches.length === 0) {
-            setSearchMessage('Nenhum resultado.');
+            setSearchMessage(uiText.form.search.noResults);
           }
         })
         .catch((err) => {
           if ((err as Error).name === 'AbortError') return;
-          setSearchMessage('Erro ao consultar dados.');
+          setSearchMessage(uiText.form.search.fetchError);
         })
         .finally(() => {
           setSearchLoading(false);
@@ -496,9 +497,9 @@ export default function FormPage() {
   return (
     <main style={styles.container}>
       <div>
-        <h1 style={styles.title}>Calculadora Black-Scholes</h1>
+        <h1 style={styles.title}>{uiText.form.title}</h1>
         <p style={styles.subtitle}>
-          Preencha os parametros anuais. Datas sao usadas para calcular T (dias uteis/252).
+          {uiText.form.subtitle}
         </p>
       </div>
 
@@ -511,7 +512,7 @@ export default function FormPage() {
             setSelectedResultIndex('');
             setSearchTerm(e.target.value);
           }}
-          placeholder="Buscar ativo (ticker ou nome, ex: PETR4.SA, Ambev)"
+          placeholder={uiText.form.search.placeholder}
         />
         <button
           style={{
@@ -527,7 +528,11 @@ export default function FormPage() {
           type="button"
           onClick={handleSearch}
           disabled={searchLoading}
-          aria-label={searchLoading ? 'Buscando ativo' : 'Pesquisar ativo'}
+          aria-label={
+            searchLoading
+              ? uiText.form.search.searchingAsset
+              : uiText.form.search.searchAsset
+          }
         >
           <SearchIcon />
         </button>
@@ -563,7 +568,7 @@ export default function FormPage() {
           }}
         >
           <option value="" disabled>
-            Selecione um ativo
+            {uiText.form.search.selectAsset}
           </option>
           {displayedResults.map((item, index) => (
             <option
@@ -579,50 +584,50 @@ export default function FormPage() {
 
       <form style={styles.form} onSubmit={handleSubmit}>
         <Input
-          label="S - Preco do ativo"
-          hint="Preco atual do ativo subjacente (spot)."
+          label={uiText.form.fields.spot.label}
+          hint={uiText.form.fields.spot.hint}
           value={form.S}
           onChange={(e) => handleChange('S', e.target.value)}
           inputMode="decimal"
         />
         <Input
-          label="K - Preco de exercicio"
-          hint="Strike: preco de exercicio no vencimento."
+          label={uiText.form.fields.strike.label}
+          hint={uiText.form.fields.strike.hint}
           value={form.K}
           onChange={(e) => handleChange('K', e.target.value)}
           inputMode="decimal"
         />
         <Input
-          label="r - Taxa livre de risco (anual)"
-          hint="Taxa livre de risco anual em decimal Selic(0.05 = 5%)."
+          label={uiText.form.fields.riskFreeRate.label}
+          hint={uiText.form.fields.riskFreeRate.hint}
           value={form.r}
           onChange={(e) => handleChange('r', e.target.value)}
           inputMode="decimal"
         />
         <Input
-          label="sigma - Volatilidade anual"
-          hint="Volatilidade anual do ativo em decimal (0.2 = 20%)."
+          label={uiText.form.fields.volatility.label}
+          hint={uiText.form.fields.volatility.hint}
           value={form.sigma}
           onChange={(e) => handleChange('sigma', e.target.value)}
           inputMode="decimal"
         />
         <Input
-          label="Data atual (DD/MM/AAAA)"
-          hint="Data base para calcular o tempo ate o vencimento."
+          label={uiText.form.fields.currentDate.label}
+          hint={uiText.form.fields.currentDate.hint}
           value={form.dataAtual}
           onChange={(e) => handleChange('dataAtual', e.target.value)}
           inputMode="text"
           placeholder="12/12/2025"
         />
         <Input
-          label="Data de vencimento (DD/MM/AAAA)"
-          hint="Data de expiracao da opcao."
+          label={uiText.form.fields.expirationDate.label}
+          hint={uiText.form.fields.expirationDate.hint}
           value={form.dataVencimento}
           onChange={(e) => handleChange('dataVencimento', e.target.value)}
           inputMode="text"
           placeholder="12/03/2026"
           leadingIcon={<CalendarIcon />}
-          leadingIconLabel="Abrir calendario de vencimento"
+          leadingIconLabel={uiText.form.fields.expirationDate.openCalendar}
           onLeadingIconClick={openVencimentoDatePicker}
         />
         <input
@@ -636,8 +641,10 @@ export default function FormPage() {
         />
         <label style={styles.inputGroup}>
           <span style={styles.labelRow}>
-            <span style={styles.label}>p - Parametro (modelo modificado)</span>
-            <InfoTip text="Parametro do Black-Scholes modificado; use apenas no modificado (sugestao: 0.5 a 1.5)." />
+            <span style={styles.label}>
+              {uiText.form.fields.pParameter.label}
+            </span>
+            <InfoTip text={uiText.form.fields.pParameter.hint} />
           </span>
           <span style={pInputRowStyle}>
             <input
@@ -649,7 +656,7 @@ export default function FormPage() {
             />
             <button
               type="button"
-              aria-label="Explicar parametro p"
+              aria-label={uiText.form.fields.pParameter.explain}
               style={pInfoButtonStyle}
               onClick={() => setIsPInfoOpen(true)}
             >
@@ -679,7 +686,7 @@ export default function FormPage() {
             type="button"
             onClick={calculateClassic}
           >
-            Calcular classico
+            {uiText.form.actions.calculateClassic}
           </button>
           <button
             style={{
@@ -692,7 +699,7 @@ export default function FormPage() {
             type="button"
             onClick={calculateModified}
           >
-            Calcular modificado
+            {uiText.form.actions.calculateModified}
           </button>
         </div>
       </form>
@@ -709,54 +716,51 @@ export default function FormPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <h2 id="p-info-title" style={bottomSheetTitleStyle}>
-              O que é o parâmetro p?
+              {uiText.form.pInfoSheet.title}
             </h2>
             <p style={bottomSheetTextStyle}>
-              O modelo modificado de Black-Scholes introduz o parâmetro p,
-              responsável por ajustar a intensidade da difusão no modelo.
+              {uiText.form.pInfoSheet.paragraphs[0]}
             </p>
             <p style={bottomSheetTextStyle}>
-              No modelo clássico de Black-Scholes temos:
+              {uiText.form.pInfoSheet.paragraphs[1]}
             </p>
-            <p style={bottomSheetTextStyle}>p = 1</p>
             <p style={bottomSheetTextStyle}>
-              Neste caso, o comportamento do preço segue a difusão tradicional
-              assumida pelo modelo original.
+              {uiText.form.pInfoSheet.paragraphs[2]}
             </p>
-            <p style={bottomSheetTextStyle}>No modelo modificado:</p>
-            <p style={bottomSheetTextStyle}>0 &lt; p &lt; ∞</p>
             <p style={bottomSheetTextStyle}>
-              O parâmetro p controla o quanto a solução se espalha ao longo do
-              tempo:
+              {uiText.form.pInfoSheet.paragraphs[3]}
             </p>
-            <ul style={bottomSheetListStyle}>
-              <li>0 &lt; p &lt; 1: difusão mais suave;</li>
-              <li>p = 1: modelo clássico;</li>
-              <li>p &gt; 1: difusão mais intensa.</li>
-            </ul>
             <p style={bottomSheetTextStyle}>
-              De forma intuitiva, o parâmetro p permite ajustar como o modelo
-              reage às condições reais do mercado, principalmente em cenários
-              onde o Black-Scholes tradicional apresenta limitações, como:
+              {uiText.form.pInfoSheet.paragraphs[4]}
+            </p>
+            <p style={bottomSheetTextStyle}>
+              {uiText.form.pInfoSheet.paragraphs[5]}
+            </p>
+            <p style={bottomSheetTextStyle}>
+              {uiText.form.pInfoSheet.paragraphs[6]}
             </p>
             <ul style={bottomSheetListStyle}>
-              <li>opções próximas do vencimento;</li>
-              <li>volatilidade smile;</li>
-              <li>volatilidade skew;</li>
-              <li>mudanças abruptas na volatilidade;</li>
-              <li>opções fora do dinheiro (OTM).</li>
+              {uiText.form.pInfoSheet.paragraphs.slice(7, 10).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
             <p style={bottomSheetTextStyle}>
-              Na prática, o parâmetro p atua como um coeficiente de difusão
-              efetiva do mercado, permitindo que o modelo se adapte melhor ao
-              comportamento observado nos preços reais.
+              {uiText.form.pInfoSheet.paragraphs[10]}
+            </p>
+            <ul style={bottomSheetListStyle}>
+              {uiText.form.pInfoSheet.limitations.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            <p style={bottomSheetTextStyle}>
+              {uiText.form.pInfoSheet.conclusion}
             </p>
             <button
               type="button"
               style={bottomSheetCloseButtonStyle}
               onClick={() => setIsPInfoOpen(false)}
             >
-              Fechar
+              {uiText.form.actions.close}
             </button>
           </section>
         </div>
@@ -1022,7 +1026,7 @@ function InfoTip({ text }: { text: string }) {
       <button
         type="button"
         style={styles.hintIcon}
-        aria-label={`Ajuda: ${text}`}
+        aria-label={`${uiText.form.accessibility.helpPrefix}: ${text}`}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -1041,21 +1045,32 @@ function InfoTip({ text }: { text: string }) {
   );
 }
 
+type ParsedInputsBase = {
+  ok: true;
+  S: number;
+  K: number;
+  r: number;
+  sigma: number;
+  dataAtual: Date;
+  dataVencimento: Date;
+};
+
+type ParsedInputsClassic = ParsedInputsBase;
+type ParsedInputsModified = ParsedInputsBase & { p: number };
+type ParsedInputsError = { ok: false; error: string };
+
+function parseInputs(
+  form: FormState,
+  options: { requireP: true },
+): ParsedInputsModified | ParsedInputsError;
+function parseInputs(
+  form: FormState,
+  options: { requireP: false },
+): ParsedInputsClassic | ParsedInputsError;
 function parseInputs(
   form: FormState,
   { requireP }: { requireP: boolean },
-):
-  | {
-    ok: true;
-    S: number;
-    K: number;
-    r: number;
-    sigma: number;
-    p?: number;
-    dataAtual: Date;
-    dataVencimento: Date;
-  }
-  | { ok: false; error: string } {
+): ParsedInputsClassic | ParsedInputsModified | ParsedInputsError {
   const S = Number(form.S);
   const K = Number(form.K);
   const r = Number(form.r);
@@ -1065,15 +1080,15 @@ function parseInputs(
   const dataVencimento = parseDate(form.dataVencimento);
 
   if ([S, K, r, sigma].some((n) => Number.isNaN(n))) {
-    return { ok: false, error: 'Preencha valores numericos validos.' };
+    return { ok: false, error: uiText.form.errors.invalidNumbers };
   }
 
   if (requireP && (Number.isNaN(p) || p <= 0)) {
-    return { ok: false, error: 'Parametro p deve ser maior que zero.' };
+    return { ok: false, error: uiText.form.errors.invalidP };
   }
 
   if (!dataAtual || !dataVencimento) {
-    return { ok: false, error: 'Datas devem estar no formato DD/MM/AAAA.' };
+    return { ok: false, error: uiText.form.errors.invalidDates };
   }
 
   return {
