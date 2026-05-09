@@ -219,6 +219,7 @@ export default function FormPage() {
   const [selectedResultIndex, setSelectedResultIndex] = useState('');
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [isPInfoOpen, setIsPInfoOpen] = useState(false);
   const navigate = useNavigate();
   const autocompleteController = useRef<AbortController | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -633,14 +634,29 @@ export default function FormPage() {
           tabIndex={-1}
           style={hiddenDateInputStyle}
         />
-        <Input
-          label="p - Parametro (modelo modificado)"
-          hint="Parametro do Black-Scholes modificado; use apenas no modificado (sugestao: 0.5 a 1.5)."
-          value={form.p}
-          onChange={(e) => handleChange('p', e.target.value)}
-          inputMode="decimal"
-          placeholder="1.0"
-        />
+        <label style={styles.inputGroup}>
+          <span style={styles.labelRow}>
+            <span style={styles.label}>p - Parametro (modelo modificado)</span>
+            <InfoTip text="Parametro do Black-Scholes modificado; use apenas no modificado (sugestao: 0.5 a 1.5)." />
+          </span>
+          <span style={pInputRowStyle}>
+            <input
+              style={{ ...styles.input, width: 128 }}
+              value={form.p}
+              onChange={(e) => handleChange('p', e.target.value)}
+              inputMode="decimal"
+              placeholder="1.0"
+            />
+            <button
+              type="button"
+              aria-label="Explicar parametro p"
+              style={pInfoButtonStyle}
+              onClick={() => setIsPInfoOpen(true)}
+            >
+              <LightbulbIcon />
+            </button>
+          </span>
+        </label>
 
         {error ? <p style={styles.error}>{error}</p> : null}
 
@@ -680,6 +696,71 @@ export default function FormPage() {
           </button>
         </div>
       </form>
+      {isPInfoOpen ? (
+        <div
+          style={bottomSheetOverlayStyle}
+          onClick={() => setIsPInfoOpen(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="p-info-title"
+            style={bottomSheetStyle}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="p-info-title" style={bottomSheetTitleStyle}>
+              O que é o parâmetro p?
+            </h2>
+            <p style={bottomSheetTextStyle}>
+              O modelo modificado de Black-Scholes introduz o parâmetro p,
+              responsável por ajustar a intensidade da difusão no modelo.
+            </p>
+            <p style={bottomSheetTextStyle}>
+              No modelo clássico de Black-Scholes temos:
+            </p>
+            <p style={bottomSheetTextStyle}>p = 1</p>
+            <p style={bottomSheetTextStyle}>
+              Neste caso, o comportamento do preço segue a difusão tradicional
+              assumida pelo modelo original.
+            </p>
+            <p style={bottomSheetTextStyle}>No modelo modificado:</p>
+            <p style={bottomSheetTextStyle}>0 &lt; p &lt; ∞</p>
+            <p style={bottomSheetTextStyle}>
+              O parâmetro p controla o quanto a solução se espalha ao longo do
+              tempo:
+            </p>
+            <ul style={bottomSheetListStyle}>
+              <li>0 &lt; p &lt; 1: difusão mais suave;</li>
+              <li>p = 1: modelo clássico;</li>
+              <li>p &gt; 1: difusão mais intensa.</li>
+            </ul>
+            <p style={bottomSheetTextStyle}>
+              De forma intuitiva, o parâmetro p permite ajustar como o modelo
+              reage às condições reais do mercado, principalmente em cenários
+              onde o Black-Scholes tradicional apresenta limitações, como:
+            </p>
+            <ul style={bottomSheetListStyle}>
+              <li>opções próximas do vencimento;</li>
+              <li>volatilidade smile;</li>
+              <li>volatilidade skew;</li>
+              <li>mudanças abruptas na volatilidade;</li>
+              <li>opções fora do dinheiro (OTM).</li>
+            </ul>
+            <p style={bottomSheetTextStyle}>
+              Na prática, o parâmetro p atua como um coeficiente de difusão
+              efetiva do mercado, permitindo que o modelo se adapte melhor ao
+              comportamento observado nos preços reais.
+            </p>
+            <button
+              type="button"
+              style={bottomSheetCloseButtonStyle}
+              onClick={() => setIsPInfoOpen(false)}
+            >
+              Fechar
+            </button>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
@@ -782,6 +863,26 @@ function SearchIcon() {
   );
 }
 
+function LightbulbIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 18h6" />
+      <path d="M10 22h4" />
+      <path d="M12 2a7 7 0 0 0-4 12.74V16h8v-1.26A7 7 0 0 0 12 2z" />
+    </svg>
+  );
+}
+
 function formatNativeDateInput(value: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return '';
   const [year, month, day] = value.split('-');
@@ -826,6 +927,85 @@ const hiddenDateInputStyle: React.CSSProperties = {
   border: 0,
   opacity: 0,
   pointerEvents: 'none',
+};
+
+const pInputRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-end',
+  gap: '8px',
+};
+
+const pInfoButtonStyle: React.CSSProperties = {
+  width: 44,
+  height: 44,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 0,
+  border: '1px solid #38bdf8',
+  borderRadius: 10,
+  backgroundColor: 'transparent',
+  color: '#38bdf8',
+  cursor: 'pointer',
+};
+
+const bottomSheetOverlayStyle: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 50,
+  display: 'flex',
+  alignItems: 'flex-end',
+  justifyContent: 'center',
+  backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  padding: '16px',
+  boxSizing: 'border-box',
+};
+
+const bottomSheetStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '760px',
+  maxHeight: '70vh',
+  overflowY: 'auto',
+  backgroundColor: '#0b1220',
+  color: '#e2e8f0',
+  border: '1px solid #1e293b',
+  borderRadius: '16px 16px 0 0',
+  padding: '18px',
+  boxSizing: 'border-box',
+  boxShadow: '0 -12px 30px rgba(0, 0, 0, 0.35)',
+};
+
+const bottomSheetTitleStyle: React.CSSProperties = {
+  margin: '0 0 10px',
+  fontSize: '18px',
+  fontWeight: 700,
+};
+
+const bottomSheetTextStyle: React.CSSProperties = {
+  margin: '0 0 16px',
+  color: '#cbd5e1',
+  fontSize: '14px',
+  lineHeight: 1.5,
+};
+
+const bottomSheetListStyle: React.CSSProperties = {
+  margin: '0 0 16px',
+  paddingLeft: '20px',
+  color: '#cbd5e1',
+  fontSize: '14px',
+  lineHeight: 1.5,
+};
+
+const bottomSheetCloseButtonStyle: React.CSSProperties = {
+  width: '100%',
+  backgroundColor: '#38bdf8',
+  color: '#0b172a',
+  fontWeight: 700,
+  fontSize: '15px',
+  padding: '12px',
+  border: 'none',
+  borderRadius: 10,
+  cursor: 'pointer',
 };
 
 function InfoTip({ text }: { text: string }) {
