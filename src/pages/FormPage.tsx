@@ -15,6 +15,7 @@ import { styles } from '../styles';
 import { parseDate, formatDateInput } from '../utils/dateHelpers';
 import { type SearchItem } from '../api/search';
 import { uiText } from '../content/uiText';
+import { salvarJsonDiario, obterJsonDiario } from '../utils/dailyStorage';
 
 
 // Interface do retorno da API do BCB
@@ -62,7 +63,6 @@ const MARKET_DATA_URL =
   'https://raw.githubusercontent.com/iagomarcolino/Consultprice/main/data/marketdata.json';
 const AUTOCOMPLETE_MIN_CHARS = 2;
 const AUTOCOMPLETE_DEBOUNCE_MS = 350;
-const MARKET_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function normalizeTicker(raw: string): string {
   const ticker = raw.trim().toUpperCase();
@@ -92,30 +92,40 @@ const marketDataCache: {
   fetchedAt: 0,
 };
 
+
 async function loadMarketData(
   signal?: AbortSignal,
 ): Promise<MarketDataItem[]> {
-  if (
-    marketDataCache.data &&
-    Date.now() - marketDataCache.fetchedAt < MARKET_CACHE_TTL_MS
-  ) {
-    return marketDataCache.data;
+  const CHAVE_CACHE = 'market_data_diario';
+
+  // 1. Tenta buscar do armazenamento local (válido até 23:59)
+  const dadosEmCache = obterJsonDiario<MarketDataItem[]>(CHAVE_CACHE);
+
+  if (dadosEmCache) {
+    console.log("Dados carregados do cache diário local.");
+    return dadosEmCache;
   }
 
+  // 2. Se não tem cache ou já passou de meia-noite, faz a requisição no GitHub
+  console.log("Baixando dados do GitHub...");
   const resp = await fetch(`${MARKET_DATA_URL}?t=${Date.now()}`, {
     cache: 'no-store',
     signal,
   });
+
   if (!resp.ok) {
     throw new Error('HTTP error');
   }
 
   const json = await resp.json();
   const data = Array.isArray(json?.data) ? json.data : [];
-  marketDataCache.data = data;
-  marketDataCache.fetchedAt = Date.now();
+
+  // 3. Salva os dados baixados no armazenamento local para o resto do dia
+  salvarJsonDiario<MarketDataItem[]>(CHAVE_CACHE, data);
+
   return data;
 }
+
 
 function getMatches(
   data: MarketDataItem[],
