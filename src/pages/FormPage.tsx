@@ -82,6 +82,7 @@ type MarketDataItem = {
   name?: string;
   price?: number;
   vol_annual?: number;
+
 };
 
 const marketDataCache: {
@@ -98,7 +99,7 @@ async function loadMarketData(
 ): Promise<MarketDataItem[]> {
   const CHAVE_CACHE = 'market_data_diario';
 
-  // 1. Tenta buscar do armazenamento local (válido até 23:59)
+  // Tenta buscar do armazenamento local (válido até 23:59)
   const dadosEmCache = obterJsonDiario<MarketDataItem[]>(CHAVE_CACHE);
 
   if (dadosEmCache) {
@@ -106,8 +107,7 @@ async function loadMarketData(
     return dadosEmCache;
   }
 
-  // 2. Se não tem cache ou já passou de meia-noite, faz a requisição no GitHub
-  console.log("Baixando dados do GitHub...");
+
   const resp = await fetch(`${MARKET_DATA_URL}?t=${Date.now()}`, {
     cache: 'no-store',
     signal,
@@ -120,7 +120,7 @@ async function loadMarketData(
   const json = await resp.json();
   const data = Array.isArray(json?.data) ? json.data : [];
 
-  // 3. Salva os dados baixados no armazenamento local para o resto do dia
+  // Salva os dados baixados no armazenamento local para o resto do dia
   salvarJsonDiario<MarketDataItem[]>(CHAVE_CACHE, data);
 
   return data;
@@ -267,7 +267,12 @@ export default function FormPage() {
   const applySearchItemToForm = (item: SearchItem) => {
     setForm((prev) => ({
       ...prev,
-      ...(item.price !== undefined ? { S: String(item.price) } : {}),
+      ...(item.price !== undefined
+        ? {
+          S: String(item.price),
+          K: (item.price * 1.05).toFixed(2)
+        }
+        : {}),
       ...(item.volAnnual !== undefined
         ? { sigma: String(item.volAnnual) }
         : {}),
