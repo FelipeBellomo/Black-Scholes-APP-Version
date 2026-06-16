@@ -14,7 +14,7 @@ import { saveResultPayload } from '../utils/resultStorage';
 import { styles } from '../styles';
 import { parseDate, formatDateInput } from '../utils/dateHelpers';
 import { type SearchItem } from '../api/search';
-import { uiText } from '../content/uiText';
+import { type Language, type UiText } from '../content/uiText';
 import { salvarJsonDiario, obterJsonDiario } from '../utils/dailyStorage';
 
 
@@ -228,7 +228,17 @@ function saveCachedFormState(form: FormState) {
   }
 }
 
-export default function FormPage() {
+type FormPageProps = {
+  language: Language;
+  onLanguageChange: (language: Language) => void;
+  t: UiText;
+};
+
+export default function FormPage({
+  language,
+  onLanguageChange,
+  t,
+}: FormPageProps) {
   const [form, setForm] = useState<FormState>(() => loadCachedFormState());
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -245,7 +255,9 @@ export default function FormPage() {
   const skipNextAutocompleteRef = useRef(false);
   const vencimentoDateInputRef = useRef<HTMLInputElement | null>(null);
   const selectedMarketRef = useRef<Market>('BR');
+  const optionsMenuRef = useRef<HTMLDivElement | null>(null);
   const displayedResults = pinnedResults ?? searchResults;
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
 
   // Estados para a requisição da Selic
   const [selicLoading, setSelicLoading] = useState(false);
@@ -262,7 +274,7 @@ export default function FormPage() {
           r: prev.r || String(taxaAtual)
         }));
       } catch (e) {
-        setSelicError(uiText.form.errors.bcbFallback);
+        setSelicError(t.form.errors.bcbFallback);
         // Valor de fallback caso a API do BCB falhe
         setForm((prev) => ({ ...prev, r: prev.r || '0.105' }));
       } finally {
@@ -315,7 +327,7 @@ export default function FormPage() {
     const rawTerm = searchTerm.trim();
     const normalizedSymbol = normalizeTicker(rawTerm, market);
     if (!rawTerm) {
-      setSearchMessage(uiText.form.search.emptyTerm);
+      setSearchMessage(t.form.search.emptyTerm);
       setSearchResults([]);
       setPinnedResults(null);
       setSelectedResultIndex('');
@@ -332,7 +344,7 @@ export default function FormPage() {
       const matches = getMatches(data, rawTerm, market);
 
       if (matches.length === 0) {
-        setSearchMessage(uiText.form.search.notFound);
+        setSearchMessage(t.form.search.notFound);
         return;
       }
 
@@ -354,7 +366,7 @@ export default function FormPage() {
       );
     } catch (err) {
       if (selectedMarketRef.current === market) {
-        setSearchMessage(uiText.form.search.fetchError);
+        setSearchMessage(t.form.search.fetchError);
       }
     } finally {
       if (selectedMarketRef.current === market) {
@@ -411,13 +423,13 @@ export default function FormPage() {
             ),
           );
           if (matches.length === 0) {
-            setSearchMessage(uiText.form.search.noResults);
+            setSearchMessage(t.form.search.noResults);
           }
         })
         .catch((err) => {
           if ((err as Error).name === 'AbortError') return;
           if (selectedMarketRef.current === market) {
-            setSearchMessage(uiText.form.search.fetchError);
+            setSearchMessage(t.form.search.fetchError);
           }
         })
         .finally(() => {
@@ -439,6 +451,24 @@ export default function FormPage() {
     },
     [],
   );
+
+  useEffect(() => {
+    if (!isOptionsOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!optionsMenuRef.current?.contains(event.target as Node)) {
+        setIsOptionsOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [isOptionsOpen]);
+
+  const handleLanguageChange = (nextLanguage: Language) => {
+    onLanguageChange(nextLanguage);
+    setIsOptionsOpen(false);
+  };
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -480,7 +510,7 @@ export default function FormPage() {
   const calculateClassic = (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-    const parsed = parseInputs(form, { requireP: false });
+    const parsed = parseInputs(form, { requireP: false }, t);
     if (!parsed.ok) {
       setError(parsed.error);
       return;
@@ -511,7 +541,7 @@ export default function FormPage() {
   const calculateModified = (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-    const parsed = parseInputs(form, { requireP: true });
+    const parsed = parseInputs(form, { requireP: true }, t);
     if (!parsed.ok) {
       setError(parsed.error);
       return;
@@ -556,11 +586,45 @@ export default function FormPage() {
 
   return (
     <main style={styles.container}>
-      <div>
-        <h1 style={styles.title}>{uiText.form.title}</h1>
+      <div style={formHeaderStyle}>
+        <h1 style={styles.title}>{t.form.title}</h1>
         <p style={styles.subtitle}>
-          {uiText.form.subtitle}
+          {t.form.subtitle}
         </p>
+        <div ref={optionsMenuRef} style={optionsWrapperStyle}>
+          <button
+            type="button"
+            aria-label={t.menu.options}
+            aria-expanded={isOptionsOpen}
+            style={optionsButtonStyle}
+            onClick={() => setIsOptionsOpen((prev) => !prev)}
+          >
+            <span style={optionsBarStyle} />
+            <span style={optionsBarStyle} />
+            <span style={optionsBarStyle} />
+          </button>
+          {isOptionsOpen ? (
+            <div style={optionsMenuStyle}>
+              <p style={optionsMenuTitleStyle}>{t.menu.language}</p>
+              {(['pt-BR', 'en', 'es'] as Language[]).map((item) => {
+                const isSelected = item === language;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    style={{
+                      ...languageOptionStyle,
+                      ...(isSelected ? languageOptionActiveStyle : {}),
+                    }}
+                    onClick={() => handleLanguageChange(item)}
+                  >
+                    {t.menu.languages[item]}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div
@@ -584,7 +648,7 @@ export default function FormPage() {
             setSelectedResultIndex('');
             setSearchTerm(e.target.value);
           }}
-          placeholder={uiText.form.search.placeholder}
+          placeholder={t.form.search.placeholder}
         />
         {(['BR', 'US'] as Market[]).map((market) => {
           const isSelected = selectedMarket === market;
@@ -612,7 +676,7 @@ export default function FormPage() {
               onClick={() => handleMarketButtonClick(market)}
               disabled={isSelected && searchLoading}
               aria-pressed={isSelected}
-              aria-label={`${uiText.form.search.searchAsset} ${market}`}
+              aria-label={`${t.form.search.searchAsset} ${market}`}
             >
               {market}
             </button>
@@ -650,7 +714,7 @@ export default function FormPage() {
           }}
         >
           <option value="" disabled>
-            {uiText.form.search.selectAsset}
+            {t.form.search.selectAsset}
           </option>
           {displayedResults.map((item, index) => (
             <option
@@ -668,50 +732,56 @@ export default function FormPage() {
 
       <form style={styles.form} onSubmit={handleSubmit}>
         <Input
-          label={uiText.form.fields.spot.label}
-          hint={uiText.form.fields.spot.hint}
+          label={t.form.fields.spot.label}
+          hint={t.form.fields.spot.hint}
+          helpPrefix={t.form.accessibility.helpPrefix}
           value={form.S}
           onChange={(e) => handleChange('S', e.target.value)}
           inputMode="decimal"
         />
         <Input
-          label={uiText.form.fields.strike.label}
-          hint={uiText.form.fields.strike.hint}
+          label={t.form.fields.strike.label}
+          hint={t.form.fields.strike.hint}
+          helpPrefix={t.form.accessibility.helpPrefix}
           value={form.K}
           onChange={(e) => handleChange('K', e.target.value)}
           inputMode="decimal"
         />
         <Input
-          label={uiText.form.fields.riskFreeRate.label}
-          hint={uiText.form.fields.riskFreeRate.hint}
+          label={t.form.fields.riskFreeRate.label}
+          hint={t.form.fields.riskFreeRate.hint}
+          helpPrefix={t.form.accessibility.helpPrefix}
           value={form.r}
           onChange={(e) => handleChange('r', e.target.value)}
           inputMode="decimal"
         />
         <Input
-          label={uiText.form.fields.volatility.label}
-          hint={uiText.form.fields.volatility.hint}
+          label={t.form.fields.volatility.label}
+          hint={t.form.fields.volatility.hint}
+          helpPrefix={t.form.accessibility.helpPrefix}
           value={form.sigma}
           onChange={(e) => handleChange('sigma', e.target.value)}
           inputMode="decimal"
         />
         <Input
-          label={uiText.form.fields.currentDate.label}
-          hint={uiText.form.fields.currentDate.hint}
+          label={t.form.fields.currentDate.label}
+          hint={t.form.fields.currentDate.hint}
+          helpPrefix={t.form.accessibility.helpPrefix}
           value={form.dataAtual}
           onChange={(e) => handleChange('dataAtual', e.target.value)}
           inputMode="text"
-          placeholder="12/12/2025"
+          placeholder={t.form.fields.currentDate.placeholder}
         />
         <Input
-          label={uiText.form.fields.expirationDate.label}
-          hint={uiText.form.fields.expirationDate.hint}
+          label={t.form.fields.expirationDate.label}
+          hint={t.form.fields.expirationDate.hint}
+          helpPrefix={t.form.accessibility.helpPrefix}
           value={form.dataVencimento}
           onChange={(e) => handleChange('dataVencimento', e.target.value)}
           inputMode="text"
-          placeholder="12/03/2026"
+          placeholder={t.form.fields.expirationDate.placeholder}
           leadingIcon={<CalendarIcon />}
-          leadingIconLabel={uiText.form.fields.expirationDate.openCalendar}
+          leadingIconLabel={t.form.fields.expirationDate.openCalendar}
           onLeadingIconClick={openVencimentoDatePicker}
         />
         <input
@@ -726,9 +796,12 @@ export default function FormPage() {
         <label style={styles.inputGroup}>
           <span style={styles.labelRow}>
             <span style={styles.label}>
-              {uiText.form.fields.pParameter.label}
+              {t.form.fields.pParameter.label}
             </span>
-            <InfoTip text={uiText.form.fields.pParameter.hint} />
+            <InfoTip
+              helpPrefix={t.form.accessibility.helpPrefix}
+              text={t.form.fields.pParameter.hint}
+            />
           </span>
           <span style={pInputRowStyle}>
             <input
@@ -740,7 +813,7 @@ export default function FormPage() {
             />
             <button
               type="button"
-              aria-label={uiText.form.fields.pParameter.explain}
+              aria-label={t.form.fields.pParameter.explain}
               style={pInfoButtonStyle}
               onClick={() => setIsPInfoOpen(true)}
             >
@@ -770,7 +843,7 @@ export default function FormPage() {
             type="button"
             onClick={calculateClassic}
           >
-            {uiText.form.actions.calculateClassic}
+            {t.form.actions.calculateClassic}
           </button>
           <button
             style={{
@@ -783,7 +856,7 @@ export default function FormPage() {
             type="button"
             onClick={calculateModified}
           >
-            {uiText.form.actions.calculateModified}
+            {t.form.actions.calculateModified}
           </button>
         </div>
       </form>
@@ -800,51 +873,51 @@ export default function FormPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <h2 id="p-info-title" style={bottomSheetTitleStyle}>
-              {uiText.form.pInfoSheet.title}
+              {t.form.pInfoSheet.title}
             </h2>
             <p style={bottomSheetTextStyle}>
-              {uiText.form.pInfoSheet.paragraphs[0]}
+              {t.form.pInfoSheet.paragraphs[0]}
             </p>
             <p style={bottomSheetTextStyle}>
-              {uiText.form.pInfoSheet.paragraphs[1]}
+              {t.form.pInfoSheet.paragraphs[1]}
             </p>
             <p style={bottomSheetTextStyle}>
-              {uiText.form.pInfoSheet.paragraphs[2]}
+              {t.form.pInfoSheet.paragraphs[2]}
             </p>
             <p style={bottomSheetTextStyle}>
-              {uiText.form.pInfoSheet.paragraphs[3]}
+              {t.form.pInfoSheet.paragraphs[3]}
             </p>
             <p style={bottomSheetTextStyle}>
-              {uiText.form.pInfoSheet.paragraphs[4]}
+              {t.form.pInfoSheet.paragraphs[4]}
             </p>
             <p style={bottomSheetTextStyle}>
-              {uiText.form.pInfoSheet.paragraphs[5]}
+              {t.form.pInfoSheet.paragraphs[5]}
             </p>
             <p style={bottomSheetTextStyle}>
-              {uiText.form.pInfoSheet.paragraphs[6]}
+              {t.form.pInfoSheet.paragraphs[6]}
             </p>
             <ul style={bottomSheetListStyle}>
-              {uiText.form.pInfoSheet.paragraphs.slice(7, 10).map((item) => (
+              {t.form.pInfoSheet.paragraphs.slice(7, 10).map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>
             <p style={bottomSheetTextStyle}>
-              {uiText.form.pInfoSheet.paragraphs[10]}
+              {t.form.pInfoSheet.paragraphs[10]}
             </p>
             <ul style={bottomSheetListStyle}>
-              {uiText.form.pInfoSheet.limitations.map((item) => (
+              {t.form.pInfoSheet.limitations.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>
             <p style={bottomSheetTextStyle}>
-              {uiText.form.pInfoSheet.conclusion}
+              {t.form.pInfoSheet.conclusion}
             </p>
             <button
               type="button"
               style={bottomSheetCloseButtonStyle}
               onClick={() => setIsPInfoOpen(false)}
             >
-              {uiText.form.actions.close}
+              {t.form.actions.close}
             </button>
           </section>
         </div>
@@ -856,6 +929,7 @@ export default function FormPage() {
 function Input({
   label,
   hint,
+  helpPrefix,
   leadingIcon,
   leadingIconLabel,
   onLeadingIconClick,
@@ -863,6 +937,7 @@ function Input({
 }: {
   label: string;
   hint?: string;
+  helpPrefix: string;
   leadingIcon?: React.ReactNode;
   leadingIconLabel?: string;
   onLeadingIconClick?: () => void;
@@ -886,7 +961,7 @@ function Input({
     <label style={styles.inputGroup}>
       <span style={styles.labelRow}>
         <span style={styles.label}>{label}</span>
-        {hint ? <InfoTip text={hint} /> : null}
+        {hint ? <InfoTip helpPrefix={helpPrefix} text={hint} /> : null}
       </span>
       {leadingIcon ? (
         <span style={inputIconWrapperStyle}>
@@ -1017,6 +1092,82 @@ const hiddenDateInputStyle: React.CSSProperties = {
   pointerEvents: 'none',
 };
 
+const formHeaderStyle: React.CSSProperties = {
+  position: 'relative',
+  paddingRight: 54,
+};
+
+const optionsWrapperStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 0,
+  right: 0,
+  zIndex: 20,
+};
+
+const optionsButtonStyle: React.CSSProperties = {
+  width: 42,
+  height: 42,
+  display: 'inline-flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 4,
+  padding: 0,
+  border: '1px solid #38bdf8',
+  borderRadius: 10,
+  backgroundColor: '#0b1220',
+  color: '#38bdf8',
+  cursor: 'pointer',
+};
+
+const optionsBarStyle: React.CSSProperties = {
+  width: 18,
+  height: 2,
+  borderRadius: 999,
+  backgroundColor: 'currentColor',
+};
+
+const optionsMenuStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 'calc(100% + 8px)',
+  right: 0,
+  minWidth: 164,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
+  padding: 10,
+  border: '1px solid #1e293b',
+  borderRadius: 10,
+  backgroundColor: '#0b1220',
+  boxShadow: '0 10px 24px rgba(0, 0, 0, 0.35)',
+};
+
+const optionsMenuTitleStyle: React.CSSProperties = {
+  margin: '0 0 4px',
+  color: '#cbd5e1',
+  fontSize: 13,
+  fontWeight: 700,
+};
+
+const languageOptionStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '8px 10px',
+  border: '1px solid #334155',
+  borderRadius: 8,
+  backgroundColor: 'transparent',
+  color: '#e2e8f0',
+  fontSize: 14,
+  textAlign: 'left',
+  cursor: 'pointer',
+};
+
+const languageOptionActiveStyle: React.CSSProperties = {
+  borderColor: '#38bdf8',
+  backgroundColor: '#38bdf8',
+  color: '#0b172a',
+  fontWeight: 700,
+};
+
 const pInputRowStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'flex-end',
@@ -1096,7 +1247,7 @@ const bottomSheetCloseButtonStyle: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-function InfoTip({ text }: { text: string }) {
+function InfoTip({ helpPrefix, text }: { helpPrefix: string; text: string }) {
   const [isPinned, setIsPinned] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const isOpen = isPinned || isHovered;
@@ -1110,7 +1261,7 @@ function InfoTip({ text }: { text: string }) {
       <button
         type="button"
         style={styles.hintIcon}
-        aria-label={`${uiText.form.accessibility.helpPrefix}: ${text}`}
+        aria-label={`${helpPrefix}: ${text}`}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -1146,14 +1297,17 @@ type ParsedInputsError = { ok: false; error: string };
 function parseInputs(
   form: FormState,
   options: { requireP: true },
+  t: UiText,
 ): ParsedInputsModified | ParsedInputsError;
 function parseInputs(
   form: FormState,
   options: { requireP: false },
+  t: UiText,
 ): ParsedInputsClassic | ParsedInputsError;
 function parseInputs(
   form: FormState,
   { requireP }: { requireP: boolean },
+  t: UiText,
 ): ParsedInputsClassic | ParsedInputsModified | ParsedInputsError {
   const S = Number(form.S);
   const K = Number(form.K);
@@ -1164,15 +1318,15 @@ function parseInputs(
   const dataVencimento = parseDate(form.dataVencimento);
 
   if ([S, K, r, sigma].some((n) => Number.isNaN(n))) {
-    return { ok: false, error: uiText.form.errors.invalidNumbers };
+    return { ok: false, error: t.form.errors.invalidNumbers };
   }
 
   if (requireP && (Number.isNaN(p) || p <= 0)) {
-    return { ok: false, error: uiText.form.errors.invalidP };
+    return { ok: false, error: t.form.errors.invalidP };
   }
 
   if (!dataAtual || !dataVencimento) {
-    return { ok: false, error: uiText.form.errors.invalidDates };
+    return { ok: false, error: t.form.errors.invalidDates };
   }
 
   return {
