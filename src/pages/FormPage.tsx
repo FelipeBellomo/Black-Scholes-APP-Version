@@ -55,18 +55,23 @@ type FormState = {
   dataVencimento: string;
 };
 
+type Market = 'BR' | 'US';
+
 const today = new Date();
 const defaultVencimento = new Date();
 defaultVencimento.setDate(today.getDate() + 90);
 
-const MARKET_DATA_URL =
-  'https://raw.githubusercontent.com/iagomarcolino/Consultprice/main/data/marketdata.json';
+const MARKET_DATA_URLS = {
+  BR: 'https://raw.githubusercontent.com/iagomarcolino/Consultprice/main/data/marketdata.json',
+  US: 'https://raw.githubusercontent.com/iagomarcolino/Consultprice_US/main/data/marketdata.json',
+};
 const AUTOCOMPLETE_MIN_CHARS = 2;
 const AUTOCOMPLETE_DEBOUNCE_MS = 350;
 
-function normalizeTicker(raw: string): string {
+function normalizeTicker(raw: string, market: Market): string {
   const ticker = raw.trim().toUpperCase();
   if (!ticker) return '';
+  if (market === 'US') return ticker;
   return ticker.includes('.') ? ticker : `${ticker}.SA`;
 }
 
@@ -80,8 +85,8 @@ function normalizeText(raw: string): string {
 type MarketDataItem = {
   symbol?: string;
   name?: string;
-  price?: number;
-  vol_annual?: number;
+  price?: number | null;
+  vol_annual?: number | null;
 
 };
 
@@ -95,9 +100,10 @@ const marketDataCache: {
 
 
 async function loadMarketData(
+  market: Market,
   signal?: AbortSignal,
 ): Promise<MarketDataItem[]> {
-  const CHAVE_CACHE = 'market_data_diario';
+  const CHAVE_CACHE = `market_data_diario_${market}`;
 
   // Tenta buscar do armazenamento local (válido até 23:59)
   const dadosEmCache = obterJsonDiario<MarketDataItem[]>(CHAVE_CACHE);
@@ -108,7 +114,7 @@ async function loadMarketData(
   }
 
 
-  const resp = await fetch(`${MARKET_DATA_URL}?t=${Date.now()}`, {
+  const resp = await fetch(`${MARKET_DATA_URLS[market]}?t=${Date.now()}`, {
     cache: 'no-store',
     signal,
   });
@@ -130,11 +136,12 @@ async function loadMarketData(
 function getMatches(
   data: MarketDataItem[],
   rawTerm: string,
+  market: Market,
 ): MarketDataItem[] {
   const term = rawTerm.trim();
   if (!term) return [];
 
-  const exactSymbol = normalizeTicker(term);
+  const exactSymbol = normalizeTicker(term, market);
   const partialSymbol = term.toUpperCase();
   const normalizedName = normalizeText(term);
 
@@ -161,8 +168,8 @@ function toSearchItem(
     symbol,
     name: item.name ?? symbol,
     exchange: 'Dados GitHub',
-    price: item.price,
-    volAnnual: item.vol_annual,
+    price: item.price ?? undefined,
+    volAnnual: item.vol_annual ?? undefined,
   };
 }
 
@@ -230,12 +237,14 @@ export default function FormPage() {
   const [selectedResultIndex, setSelectedResultIndex] = useState('');
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedMarket, setSelectedMarket] = useState<Market>('BR');
   const [isPInfoOpen, setIsPInfoOpen] = useState(false);
   const navigate = useNavigate();
   const autocompleteController = useRef<AbortController | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextAutocompleteRef = useRef(false);
   const vencimentoDateInputRef = useRef<HTMLInputElement | null>(null);
+  const selectedMarketRef = useRef<Market>('BR');
   const displayedResults = pinnedResults ?? searchResults;
 
   // Estados para a requisição da Selic
@@ -279,9 +288,32 @@ export default function FormPage() {
     }));
   };
 
+  const handleMarketButtonClick = (market: Market) => {
+    if (market === selectedMarket) {
+      void handleSearch();
+      return;
+    }
+
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    if (autocompleteController.current) {
+      autocompleteController.current.abort();
+    }
+
+    setSelectedMarket(market);
+    selectedMarketRef.current = market;
+    setSearchResults([]);
+    setPinnedResults(null);
+    setSelectedResultIndex('');
+    setSearchMessage(null);
+    setSearchLoading(false);
+  };
+
   const handleSearch = async () => {
+    const market = selectedMarket;
     const rawTerm = searchTerm.trim();
-    const normalizedSymbol = normalizeTicker(rawTerm);
+    const normalizedSymbol = normalizeTicker(rawTerm, market);
     if (!rawTerm) {
       setSearchMessage(uiText.form.search.emptyTerm);
       setSearchResults([]);
@@ -295,8 +327,9 @@ export default function FormPage() {
     setPinnedResults(null);
     setSelectedResultIndex('');
     try {
-      const data = await loadMarketData();
-      const matches = getMatches(data, rawTerm);
+      const data = await loadMarketData(market);
+      if (selectedMarketRef.current !== market) return;
+      const matches = getMatches(data, rawTerm, market);
 
       if (matches.length === 0) {
         setSearchMessage(uiText.form.search.notFound);
@@ -320,13 +353,18 @@ export default function FormPage() {
         matches.map((item) => toSearchItem(item, normalizedSymbol)),
       );
     } catch (err) {
-      setSearchMessage(uiText.form.search.fetchError);
+      if (selectedMarketRef.current === market) {
+        setSearchMessage(uiText.form.search.fetchError);
+      }
     } finally {
-      setSearchLoading(false);
+      if (selectedMarketRef.current === market) {
+        setSearchLoading(false);
+      }
     }
   };
 
   useEffect(() => {
+    const market = selectedMarket;
     const term = searchTerm.trim();
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
@@ -363,11 +401,14 @@ export default function FormPage() {
 
       setSearchLoading(true);
       setSearchMessage(null);
-      loadMarketData(controller.signal)
+      loadMarketData(market, controller.signal)
         .then((data) => {
-          const matches = getMatches(data, term);
+          if (selectedMarketRef.current !== market) return;
+          const matches = getMatches(data, term, market);
           setSearchResults(
-            matches.map((item) => toSearchItem(item, normalizeTicker(term))),
+            matches.map((item) =>
+              toSearchItem(item, normalizeTicker(term, market)),
+            ),
           );
           if (matches.length === 0) {
             setSearchMessage(uiText.form.search.noResults);
@@ -375,13 +416,17 @@ export default function FormPage() {
         })
         .catch((err) => {
           if ((err as Error).name === 'AbortError') return;
-          setSearchMessage(uiText.form.search.fetchError);
+          if (selectedMarketRef.current === market) {
+            setSearchMessage(uiText.form.search.fetchError);
+          }
         })
         .finally(() => {
-          setSearchLoading(false);
+          if (selectedMarketRef.current === market) {
+            setSearchLoading(false);
+          }
         });
     }, AUTOCOMPLETE_DEBOUNCE_MS);
-  }, [searchTerm]);
+  }, [searchTerm, selectedMarket]);
 
   useEffect(
     () => () => {
@@ -529,28 +574,37 @@ export default function FormPage() {
           }}
           placeholder={uiText.form.search.placeholder}
         />
-        <button
-          style={{
-            ...styles.secondaryButton,
-            width: 48,
-            height: 48,
-            padding: 0,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginTop: 0,
-          }}
-          type="button"
-          onClick={handleSearch}
-          disabled={searchLoading}
-          aria-label={
-            searchLoading
-              ? uiText.form.search.searchingAsset
-              : uiText.form.search.searchAsset
-          }
-        >
-          <SearchIcon />
-        </button>
+        {(['BR', 'US'] as Market[]).map((market) => {
+          const isSelected = selectedMarket === market;
+          return (
+            <button
+              key={market}
+              style={{
+                ...styles.secondaryButton,
+                width: 48,
+                height: 48,
+                padding: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 0,
+                ...(isSelected
+                  ? {
+                    backgroundColor: '#38bdf8',
+                    color: '#0b172a',
+                  }
+                  : {}),
+              }}
+              type="button"
+              onClick={() => handleMarketButtonClick(market)}
+              disabled={isSelected && searchLoading}
+              aria-pressed={isSelected}
+              aria-label={`${uiText.form.search.searchAsset} ${market}`}
+            >
+              {market}
+            </button>
+          );
+        })}
       </div>
 
       {searchMessage ? <p style={styles.error}>{searchMessage}</p> : null}
@@ -591,7 +645,9 @@ export default function FormPage() {
               value={String(index)}
             >
               {item.symbol} - {item.name}
-              {item.price !== undefined ? ` (R$ ${item.price})` : ''}
+              {item.price !== undefined
+                ? ` (${selectedMarket === 'US' ? '$' : 'R$'} ${item.price})`
+                : ''}
             </option>
           ))}
         </select>
