@@ -563,9 +563,21 @@ export default function FormPage() {
         </p>
       </div>
 
-      <div style={styles.searchRow}>
+      <div
+        style={{
+          ...styles.searchRow,
+          flexWrap: 'nowrap',
+          width: '100%',
+        }}
+      >
         <input
-          style={{ ...styles.input, ...styles.searchInput, marginTop: 0 }}
+          style={{
+            ...styles.input,
+            ...styles.searchInput,
+            marginTop: 0,
+            flex: 1,
+            minWidth: 0,
+          }}
           value={searchTerm}
           onChange={(e) => {
             setPinnedResults(null);
@@ -583,6 +595,7 @@ export default function FormPage() {
                 ...styles.secondaryButton,
                 width: 48,
                 height: 48,
+                flexShrink: 0,
                 padding: 0,
                 display: 'inline-flex',
                 alignItems: 'center',
